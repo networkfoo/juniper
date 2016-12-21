@@ -1,0 +1,318 @@
+diff -crB --new-file vmx-16.1R1.7/env/fedora_virtio.env vmx-fedora-16.1R1.7/env/fedora_virtio.env
+*** vmx-16.1R1.7/env/fedora_virtio.env	1970-01-01 01:00:00.000000000 +0100
+--- vmx-fedora-16.1R1.7/env/fedora_virtio.env	2016-12-19 10:14:45.546291278 +0100
+***************
+*** 0 ****
+--- 1,34 ----
++ #!/bin/sh
++ 
++ #
++ # Set environment as detected
++ #
++ CHECK_ENV=1
++ 
++ #
++ # Fedora checks to be enabled
++ #
++ 
++ CHECK_GRUB=0
++ CHECK_pkg=1
++ CHECK_kernel_ver=0
++ CHECK_qemu_ver=0
++ CHECK_libvirt_ver=0
++ CHECK_virsh=1
++ CHECK_ixgbe=0
++ 
++ #
++ # Define values for Fedora
++ #
++ 
++ PARAMS_pkg_list='PyYAML glib2-devel libnl3-devel libvirt-daemon-config-network libvirt-daemon-kvm libxml2-devel libxslt-devel libyaml-devel numactl numactl-devel python-devel python-netifaces qemu-kvm redhat-lsb-core virt-install yajl-devel'
++ PARAMS_pkg_cmd='dnf list installed'
++ PARAMS_grub_file='/boot/grub/grub.cfg'
++ PARAMS_grub_user_file='/etc/default/grub'
++ PARAMS_kernel_ver='3.13.0-32' # or greater
++ PARAMS_kernel_delimiter='-generic'
++ PARAMS_qemu_ver='2.0.0' # or greater
++ PARAMS_qemu_bin='qemu-system-x86_64'
++ PARAMS_libvirt_ver='1.2.2' # or greater
++ PARAMS_libvirt_bin='libvirtd'
++ PARAMS_num_hugepages_per_numa_node=4096
+diff -crB --new-file vmx-16.1R1.7/scripts/common/vmx_common_utils.sh vmx-fedora-16.1R1.7/scripts/common/vmx_common_utils.sh
+*** vmx-16.1R1.7/scripts/common/vmx_common_utils.sh	2016-06-17 23:38:07.000000000 +0200
+--- vmx-fedora-16.1R1.7/scripts/common/vmx_common_utils.sh	2016-12-19 10:02:00.384747937 +0100
+***************
+*** 44,50 ****
+      local text
+  
+      text=$1
+!     echo "\033[32m$text\033[0m" | $g_text_redir
+  }
+  
+  ###################################################
+--- 44,50 ----
+      local text
+  
+      text=$1
+!     echo -e "\033[32m$text\033[0m" | $g_text_redir
+  }
+  
+  ###################################################
+***************
+*** 56,62 ****
+      local text
+  
+      text=$1
+!     echo "\033[31m$text\033[0m" | $g_text_redir
+  }
+  
+  ###################################################
+--- 56,62 ----
+      local text
+  
+      text=$1
+!     echo -e "\033[31m$text\033[0m" | $g_text_redir
+  }
+  
+  ###################################################
+diff -crB --new-file vmx-16.1R1.7/scripts/kvm/common/vmx_kvm_bringup.sh vmx-fedora-16.1R1.7/scripts/kvm/common/vmx_kvm_bringup.sh
+*** vmx-16.1R1.7/scripts/kvm/common/vmx_kvm_bringup.sh	2016-06-17 23:38:07.000000000 +0200
+--- vmx-fedora-16.1R1.7/scripts/kvm/common/vmx_kvm_bringup.sh	2016-12-19 10:02:33.985640058 +0100
+***************
+*** 44,50 ****
+      vmx_exec_cmd -cmd "$cmd"
+      if [ $? -ne 0 ];
+      then
+!         mgmt_addr=`ifconfig $configured_mgmt_if | grep 'inet addr:' | cut -d: -f2 | awk '{print $1}'`
+          cmd="expr \"$mgmt_addr\" != \"\""
+          cmd_descr="Get Management Address of $configured_mgmt_if"
+          fail_descr="No IP Address configuration for $configured_mgmt_if"
+--- 44,55 ----
+      vmx_exec_cmd -cmd "$cmd"
+      if [ $? -ne 0 ];
+      then
+!         if [ $( vmx_get_os ) = "fedora" ];
+!         then
+!             mgmt_addr=`ifconfig $configured_mgmt_if | grep 'inet ' | cut -d: -f2 | awk '{print $2}'`
+!         else
+!             mgmt_addr=`ifconfig $configured_mgmt_if | grep 'inet addr:' | cut -d: -f2 | awk '{print $1}'`
+!         fi
+          cmd="expr \"$mgmt_addr\" != \"\""
+          cmd_descr="Get Management Address of $configured_mgmt_if"
+          fail_descr="No IP Address configuration for $configured_mgmt_if"
+diff -crB --new-file vmx-16.1R1.7/scripts/kvm/common/vmx_kvm_cleanup.sh vmx-fedora-16.1R1.7/scripts/kvm/common/vmx_kvm_cleanup.sh
+*** vmx-16.1R1.7/scripts/kvm/common/vmx_kvm_cleanup.sh	2016-06-17 23:38:07.000000000 +0200
+--- vmx-fedora-16.1R1.7/scripts/kvm/common/vmx_kvm_cleanup.sh	2016-12-19 10:02:46.641599425 +0100
+***************
+*** 80,86 ****
+              vmx_echo "[Yes]"
+          fi
+          cmd_descr="Check if $external_br_name has valid IP address"
+!         cmd="ifconfig $external_br_name | grep \"inet addr:\""
+          success_string="[Yes]"
+          fail_string="[No]"
+          vmx_exec_cmd -cmd "$cmd" -cmd_descr "$cmd_descr" -success_string "$success_string" \
+--- 80,91 ----
+              vmx_echo "[Yes]"
+          fi
+          cmd_descr="Check if $external_br_name has valid IP address"
+! 	if [ $( vmx_get_os ) = "fedora" ];
+! 	then
+! 	    cmd="ifconfig $external_br_name | grep \"inet \""
+! 	else
+! 	    cmd="ifconfig $external_br_name | grep \"inet addr:\""
+! 	fi
+          success_string="[Yes]"
+          fail_string="[No]"
+          vmx_exec_cmd -cmd "$cmd" -cmd_descr "$cmd_descr" -success_string "$success_string" \
+***************
+*** 90,98 ****
+              return
+          fi
+          
+!         mgmt_addr=`ifconfig $external_br_name | grep 'inet addr:' | cut -d: -f2 | awk '{print $1}'`
+          vmx_echo_textval "Get Management Address" $mgmt_addr
+!         mgmt_mask=`ifconfig $external_br_name | grep 'Mask:' | cut -d: -f4 | awk '{ print $1}'`
+          vmx_echo_textval "Get Management Mask" $mgmt_mask
+          mgmt_gw=`route -n | grep "^0.0.0.0" | awk '{print $2}'`
+          vmx_echo_textval "Get Management Gateway" $mgmt_gw
+--- 95,113 ----
+              return
+          fi
+          
+! 	if [ $( vmx_get_os ) = "fedora" ];
+! 	then
+! 	    mgmt_addr=`ifconfig $external_br_name | grep 'inet ' | cut -d: -f2 | awk '{print $2}'`
+! 	else
+! 	    mgmt_addr=`ifconfig $external_br_name | grep 'inet addr:' | cut -d: -f2 | awk '{print $1}'`
+! 	fi
+          vmx_echo_textval "Get Management Address" $mgmt_addr
+! 	if [ $( vmx_get_os ) = "fedora" ];
+! 	then
+! 	    mgmt_mask=`ifconfig $external_br_name | grep 'netmask ' | cut -d: -f4 | awk '{ print $4}'`
+! 	else
+! 	    mgmt_mask=`ifconfig $external_br_name | grep 'Mask:' | cut -d: -f4 | awk '{ print $1}'`
+! 	fi
+          vmx_echo_textval "Get Management Mask" $mgmt_mask
+          mgmt_gw=`route -n | grep "^0.0.0.0" | awk '{print $2}'`
+          vmx_echo_textval "Get Management Gateway" $mgmt_gw
+diff -crB --new-file vmx-16.1R1.7/scripts/kvm/common/vmx_kvm_system_setup.sh vmx-fedora-16.1R1.7/scripts/kvm/common/vmx_kvm_system_setup.sh
+*** vmx-16.1R1.7/scripts/kvm/common/vmx_kvm_system_setup.sh	2016-06-17 23:38:07.000000000 +0200
+--- vmx-fedora-16.1R1.7/scripts/kvm/common/vmx_kvm_system_setup.sh	2016-12-19 10:03:09.664525506 +0100
+***************
+*** 37,43 ****
+  
+      vmx_echo_text "Setup huge pages to $num_hugepages"
+  
+!     cmd="echo $num_hugepages > /proc/sys/vm/nr_overcommit_hugepages"
+      vmx_exec_cmd -cmd "$cmd" 
+  
+      if [ ! -d "/HugePage_vPFE" ];
+--- 37,48 ----
+  
+      vmx_echo_text "Setup huge pages to $num_hugepages"
+  
+!     if [ $( vmx_get_os ) = "fedora" ];
+!     then
+!     	cmd="echo $num_hugepages > /proc/sys/vm/nr_hugepages"
+!     else
+!     	cmd="echo $num_hugepages > /proc/sys/vm/nr_overcommit_hugepages"
+!     fi
+      vmx_exec_cmd -cmd "$cmd" 
+  
+      if [ ! -d "/HugePage_vPFE" ];
+***************
+*** 64,74 ****
+  {
+      local cmd
+  
+!     vmx_exec_cmd -cmd "cat /etc/apparmor.d/abstractions/libvirt-qemu  | grep HugePage_vPFE"
+!     if [ $? -ne 0 ];
+      then
+!         cmd="echo \"owner \\\"/HugePage_vPFE/libvirt/qemu/**\\\" rw,\" >> /etc/apparmor.d/abstractions/libvirt-qemu"
+!         vmx_exec_cmd -cmd "$cmd"
+      fi
+  }
+  
+--- 69,82 ----
+  {
+      local cmd
+  
+!     if [ $( vmx_get_os ) = "ubuntu" ];
+      then
+!         vmx_exec_cmd -cmd "cat /etc/apparmor.d/abstractions/libvirt-qemu  | grep HugePage_vPFE"
+!         if [ $? -ne 0 ];
+!         then
+!             cmd="echo \"owner \\\"/HugePage_vPFE/libvirt/qemu/**\\\" rw,\" >> /etc/apparmor.d/abstractions/libvirt-qemu"
+!             vmx_exec_cmd -cmd "$cmd"
+!         fi
+      fi
+  }
+  
+***************
+*** 78,87 ****
+      local cmd
+  
+      cmd_descr="Attempt to kill libvirt"
+!     cmd="killall libvirtd"
+      vmx_exec_cmd -cmd "$cmd" -cmd_descr "$cmd_descr" -warn
+      cmd_descr="Attempt to start libvirt"
+!     cmd="service libvirt-bin restart"
+      vmx_exec_cmd -cmd "$cmd" -cmd_descr "$cmd_descr" -warn
+      cmd_descr="Sleep 2 secs"
+      cmd="sleep 2"
+--- 86,105 ----
+      local cmd
+  
+      cmd_descr="Attempt to kill libvirt"
+!     if [ $( vmx_get_os ) = "fedora" ];
+!     then
+!         cmd="systemctl stop libvirtd"
+!     else
+!         cmd="killall libvirtd"
+!     fi
+      vmx_exec_cmd -cmd "$cmd" -cmd_descr "$cmd_descr" -warn
+      cmd_descr="Attempt to start libvirt"
+!     if [ $( vmx_get_os ) = "fedora" ];
+!     then
+!         cmd="systemctl start libvirtd"
+!     else
+!         cmd="service libvirt-bin restart"
+!     fi
+      vmx_exec_cmd -cmd "$cmd" -cmd_descr "$cmd_descr" -warn
+      cmd_descr="Sleep 2 secs"
+      cmd="sleep 2"
+diff -crB --new-file vmx-16.1R1.7/scripts/templates/_vPFE-ref.xml vmx-fedora-16.1R1.7/scripts/templates/_vPFE-ref.xml
+*** vmx-16.1R1.7/scripts/templates/_vPFE-ref.xml	2016-06-17 23:38:07.000000000 +0200
+--- vmx-fedora-16.1R1.7/scripts/templates/_vPFE-ref.xml	2016-12-19 10:03:21.361487951 +0100
+***************
+*** 10,16 ****
+      <memory mode='strict' nodeset='0'/>
+    </numatune>
+    <os>
+!     <type arch='x86_64' machine='pc-i440fx-trusty'>hvm</type>
+      <boot dev='hd'/>
+    </os>
+    <features>
+--- 10,16 ----
+      <memory mode='strict' nodeset='0'/>
+    </numatune>
+    <os>
+!     <type arch='x86_64'>hvm</type>
+      <boot dev='hd'/>
+    </os>
+    <features>
+diff -crB --new-file vmx-16.1R1.7/vmx.sh vmx-fedora-16.1R1.7/vmx.sh
+*** vmx-16.1R1.7/vmx.sh	2016-06-17 23:38:07.000000000 +0200
+--- vmx-fedora-16.1R1.7/vmx.sh	2016-12-19 09:59:39.825199225 +0100
+***************
+*** 458,464 ****
+      fi
+  
+      # Validate vmx.conf file 
+!     if [ $vmx_cmd_config_file_valid -eq 0 -a -z $g_config_file ];
+      then
+          g_config_file="$VMX_ROOT/config/vmx.conf"
+      elif [ ! -f "$g_config_file" ];
+--- 458,464 ----
+      fi
+  
+      # Validate vmx.conf file 
+!     if [ $vmx_cmd_config_file_valid -eq 0 -a -z "$g_config_file" ];
+      then
+          g_config_file="$VMX_ROOT/config/vmx.conf"
+      elif [ ! -f "$g_config_file" ];
+***************
+*** 468,474 ****
+      fi
+  
+      # Validate build directory 
+!     if [ $vmx_cmd_build_path_valid -eq 0 -a -z $g_build_path ];
+      then
+          vmx_id=$( vmx_get_vmx_id )
+          g_build_path="$VMX_ROOT/build/$vmx_id"
+--- 468,474 ----
+      fi
+  
+      # Validate build directory 
+!     if [ $vmx_cmd_build_path_valid -eq 0 -a -z "$g_build_path" ];
+      then
+          vmx_id=$( vmx_get_vmx_id )
+          g_build_path="$VMX_ROOT/build/$vmx_id"
+***************
+*** 501,507 ****
+      fi
+  
+      # Validate env file 
+!     if [ $vmx_cmd_env_file_valid -eq 1 -a -z $g_env_file ];
+      then
+          echo "Error! Cannot find env file"
+          exit 2
+--- 501,507 ----
+      fi
+  
+      # Validate env file 
+!     if [ $vmx_cmd_env_file_valid -eq 1 -a -z "$g_env_file" ];
+      then
+          echo "Error! Cannot find env file"
+          exit 2
